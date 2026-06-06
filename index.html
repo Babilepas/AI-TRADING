@@ -1,1 +1,328 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SMC AI Trading Assistant</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0a0e1a;--bg2:#0f1424;--bg3:#151b2e;--bg4:#1c2440;
+    --border:#2a3550;--text:#e8eaf6;--text2:#8892b0;
+    --accent:#00d4aa;--accent2:#7c4dff;
+    --bull:#00d4aa;--bear:#ff4d6d;--gold:#ffd166;--sideways:#8892b0;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;}
+  .header{background:var(--bg2);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+  .logo{font-family:'Space Mono',monospace;font-size:16px;color:var(--accent);letter-spacing:2px;}
+  .logo span{color:var(--text2);font-size:11px;display:block;letter-spacing:1px;margin-top:2px;}
+  .pair-selector{display:flex;gap:8px;flex-wrap:wrap;}
+  .pair-btn{background:var(--bg3);border:1px solid var(--border);color:var(--text2);padding:6px 14px;border-radius:6px;cursor:pointer;font-family:'Space Mono',monospace;font-size:12px;transition:all 0.2s;}
+  .pair-btn.active,.pair-btn:hover{background:var(--accent);color:var(--bg);border-color:var(--accent);}
+  .tf-btn{background:var(--bg3);border:1px solid var(--border);color:var(--text2);padding:5px 10px;border-radius:5px;cursor:pointer;font-size:11px;font-family:'Space Mono',monospace;transition:all 0.2s;}
+  .tf-btn.active,.tf-btn:hover{background:var(--accent2);color:white;border-color:var(--accent2);}
+  .main{display:grid;grid-template-columns:1fr 320px;gap:0;height:calc(100vh - 57px);}
+  @media(max-width:900px){.main{grid-template-columns:1fr;height:auto;}}
+  .chart-area{padding:16px;display:flex;flex-direction:column;gap:12px;overflow-y:auto;}
+  .sidebar{background:var(--bg2);border-left:1px solid var(--border);padding:16px;overflow-y:auto;display:flex;flex-direction:column;gap:14px;}
+  .card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px;}
+  .card-title{font-size:10px;font-family:'Space Mono',monospace;color:var(--text2);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;}
+  .price-big{font-family:'Space Mono',monospace;font-size:28px;font-weight:700;color:var(--text);}
+  .price-change{font-size:13px;padding:3px 8px;border-radius:5px;font-weight:500;}
+  .change-up{background:rgba(0,212,170,0.15);color:var(--bull);}
+  .change-down{background:rgba(255,77,109,0.15);color:var(--bear);}
+  .chart-wrap{position:relative;height:280px;}
+  .volume-wrap{position:relative;height:80px;}
+  .ind-badge{font-size:10px;font-family:'Space Mono',monospace;padding:3px 8px;border-radius:4px;border:1px solid;}
+  .ind-bull{border-color:var(--bull);color:var(--bull);background:rgba(0,212,170,0.08);}
+  .ind-bear{border-color:var(--bear);color:var(--bear);background:rgba(255,77,109,0.08);}
+  .ind-neutral{border-color:var(--gold);color:var(--gold);background:rgba(255,209,102,0.08);}
+  .signal-box{border-radius:10px;padding:16px;border:2px solid;position:relative;overflow:hidden;}
+  .signal-bull{border-color:var(--bull);background:rgba(0,212,170,0.05);}
+  .signal-bear{border-color:var(--bear);background:rgba(255,77,109,0.05);}
+  .signal-neutral{border-color:var(--gold);background:rgba(255,209,102,0.05);}
+  .signal-sideways{border-color:var(--sideways);background:rgba(136,146,176,0.05);}
+  .signal-label{font-family:'Space Mono',monospace;font-size:22px;font-weight:700;margin-bottom:4px;}
+  .signal-bull .signal-label{color:var(--bull);}
+  .signal-bear .signal-label{color:var(--bear);}
+  .signal-neutral .signal-label{color:var(--gold);}
+  .signal-sideways .signal-label{color:var(--sideways);}
+  .signal-reason{font-size:12px;color:var(--text2);line-height:1.6;}
+  .zone-item{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);}
+  .zone-item:last-child{border-bottom:none;}
+  .zone-label{font-size:12px;color:var(--text2);}
+  .zone-price{font-family:'Space Mono',monospace;font-size:12px;color:var(--text);}
+  .zone-tag{font-size:9px;padding:2px 7px;border-radius:3px;font-family:'Space Mono',monospace;}
+  .tag-od{background:rgba(124,77,255,0.2);color:#b39ddb;border:1px solid rgba(124,77,255,0.3);}
+  .tag-sd{background:rgba(255,77,109,0.2);color:#ff8a9b;border:1px solid rgba(255,77,109,0.3);}
+  .tag-fvg{background:rgba(0,212,170,0.2);color:#69f0ae;border:1px solid rgba(0,212,170,0.3);}
+  .tag-liq{background:rgba(255,209,102,0.2);color:#ffd166;border:1px solid rgba(255,209,102,0.3);}
+  .tpsl-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .tpsl-cell{background:var(--bg4);border-radius:8px;padding:10px;}
+  .tpsl-key{font-size:10px;color:var(--text2);font-family:'Space Mono',monospace;margin-bottom:4px;}
+  .tpsl-val{font-family:'Space Mono',monospace;font-size:14px;font-weight:700;}
+  .tp-val{color:var(--bull);}.sl-val{color:var(--bear);}.entry-val{color:var(--accent2);}.rr-val{color:var(--gold);}
+  .rr-bar{height:6px;background:var(--bg4);border-radius:3px;margin-top:8px;overflow:hidden;}
+  .rr-fill{height:100%;background:linear-gradient(90deg,var(--bear) 0%,var(--bear) 33%,var(--bull) 33%,var(--bull) 100%);border-radius:3px;width:100%;}
+  .ind-table{width:100%;}
+  .ind-table tr{border-bottom:1px solid var(--border);}
+  .ind-table tr:last-child{border-bottom:none;}
+  .ind-table td{padding:7px 0;font-size:12px;}
+  .ind-table td:first-child{color:var(--text2);font-family:'Space Mono',monospace;font-size:10px;}
+  .ind-table td:last-child{text-align:right;font-family:'Space Mono',monospace;}
+  .analyze-btn{width:100%;padding:12px;background:linear-gradient(135deg,var(--accent2),var(--accent));border:none;border-radius:8px;color:white;font-family:'Space Mono',monospace;font-size:12px;letter-spacing:1px;cursor:pointer;transition:opacity 0.2s;font-weight:700;}
+  .analyze-btn:hover{opacity:0.85;}.analyze-btn:disabled{opacity:0.5;cursor:not-allowed;}
+  .strength-label{display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-bottom:4px;}
+  .strength-bar{height:8px;background:var(--bg4);border-radius:4px;overflow:hidden;}
+  .strength-fill{height:100%;border-radius:4px;transition:width 0.5s;}
+  .ai-box{background:var(--bg4);border-radius:8px;padding:12px;font-size:12px;color:var(--text2);line-height:1.7;min-height:60px;}
+  .live-dot{width:7px;height:7px;border-radius:50%;background:var(--bull);display:inline-block;margin-right:6px;animation:pulse 1.5s infinite;}
+  .live-dot.red{background:var(--bear);}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+  .pulse{animation:pulse 1s infinite;}
+  /* API Key Setup */
+  .setup-overlay{position:fixed;inset:0;background:rgba(10,14,26,0.95);z-index:100;display:flex;align-items:center;justify-content:center;}
+  .setup-box{background:var(--bg3);border:1px solid var(--border);border-radius:16px;padding:32px;max-width:480px;width:90%;}
+  .setup-title{font-family:'Space Mono',monospace;font-size:18px;color:var(--accent);margin-bottom:8px;}
+  .setup-sub{font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:20px;}
+  .setup-input{width:100%;background:var(--bg4);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:8px;font-family:'Space Mono',monospace;font-size:13px;margin-bottom:10px;}
+  .setup-input:focus{outline:none;border-color:var(--accent);}
+  .setup-btn{width:100%;padding:12px;background:var(--accent);border:none;border-radius:8px;color:var(--bg);font-family:'Space Mono',monospace;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px;}
+  .setup-btn.skip{background:var(--bg4);color:var(--text2);margin-bottom:0;}
+  .setup-note{font-size:11px;color:var(--text2);line-height:1.6;margin-top:12px;padding:10px;background:var(--bg4);border-radius:6px;}
+  .status-bar{display:flex;align-items:center;gap:8px;font-size:11px;font-family:'Space Mono',monospace;}
+  .conn-badge{padding:3px 8px;border-radius:4px;font-size:10px;}
+  .conn-live{background:rgba(0,212,170,0.15);color:var(--bull);border:1px solid rgba(0,212,170,0.3);}
+  .conn-sim{background:rgba(255,209,102,0.15);color:var(--gold);border:1px solid rgba(255,209,102,0.3);}
+  .conn-err{background:rgba(255,77,109,0.15);color:var(--bear);border:1px solid rgba(255,77,109,0.3);}
+  select{background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 10px;border-radius:6px;font-size:12px;cursor:pointer;}
+</style>
+</head>
+<body>
+
+<!-- API Setup Overlay -->
+<div class="setup-overlay" id="setupOverlay">
+  <div class="setup-box">
+    <div class="setup-title">⚡ SMC·AI Setup</div>
+    <div class="setup-sub">Enter your <strong style="color:var(--text)">Twelve Data API key</strong> for live forex & gold prices (XAUUSD, EURUSD, GBPUSD, USDJPY). Crypto (BTC) uses Binance — always free, no key needed.</div>
+    <div style="margin-bottom:6px;font-size:11px;color:var(--text2)">Get a free key at <a href="https://twelvedata.com" target="_blank" style="color:var(--accent)">twelvedata.com</a> → Free plan = 800 calls/day</div>
+    <input class="setup-input" id="tdKeyInput" type="text" placeholder="your_twelve_data_api_key_here" />
+    <button class="setup-btn" onclick="saveAndStart()">✓ Connect Live Data</button>
+    <button class="setup-btn skip" onclick="startSimulated()">→ Continue with Simulated Data</button>
+    <div class="setup-note">🔒 Your API key is stored only in your browser (localStorage). It is never sent anywhere except directly to api.twelvedata.com and api.anthropic.com.</div>
+  </div>
+</div>
+
+<div class="header">
+  <div class="logo">SMC·AI <span>Smart Money Concepts Assistant</span></div>
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+    <div class="pair-selector" id="pairBtns">
+      <button class="pair-btn active" onclick="setPair('XAUUSD')">XAU/USD</button>
+      <button class="pair-btn" onclick="setPair('EURUSD')">EUR/USD</button>
+      <button class="pair-btn" onclick="setPair('BTCUSD')">BTC/USD</button>
+      <button class="pair-btn" onclick="setPair('GBPUSD')">GBP/USD</button>
+      <button class="pair-btn" onclick="setPair('USDJPY')">USD/JPY</button>
+    </div>
+    <div class="status-bar">
+      <span class="live-dot" id="liveDot"></span>
+      <span id="connStatus" class="conn-badge conn-sim">SIM</span>
+      <button onclick="showSetup()" style="background:none;border:1px solid var(--border);color:var(--text2);padding:4px 8px;border-radius:5px;cursor:pointer;font-size:10px;font-family:'Space Mono',monospace;">⚙ API</button>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="chart-area" style="overflow-y:auto;">
+    <!-- Price Row -->
+    <div class="card" style="padding:12px 16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-size:10px;color:var(--text2);font-family:'Space Mono',monospace;letter-spacing:1px;margin-bottom:4px">
+            <span class="live-dot" id="priceDot"></span><span id="pairLabel">XAUUSD</span> · <span id="dataSource">SIMULATED</span>
+          </div>
+          <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:4px">
+            <div class="price-big" id="currentPrice">—</div>
+            <div class="price-change change-up" id="priceChange">—</div>
+          </div>
+          <div style="font-size:11px;color:var(--text2);font-family:'Space Mono',monospace">
+            H: <span id="dayHigh">—</span> &nbsp; L: <span id="dayLow">—</span> &nbsp; Vol: <span id="volDisplay">—</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="tf-btn active" onclick="setTF('5min',this)">M5</button>
+          <button class="tf-btn" onclick="setTF('15min',this)">M15</button>
+          <button class="tf-btn" onclick="setTF('1h',this)">H1</button>
+          <button class="tf-btn" onclick="setTF('4h',this)">H4</button>
+          <button class="tf-btn" onclick="setTF('1day',this)">D1</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Price Chart -->
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+        <div class="card-title" style="margin-bottom:0">Price Action + SMC Zones</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;" id="indBadges"></div>
+      </div>
+      <div class="chart-wrap"><canvas id="priceChart" role="img" aria-label="Price action candlestick chart with SMC zones"></canvas></div>
+    </div>
+
+    <!-- Volume -->
+    <div class="card">
+      <div class="card-title">Volume</div>
+      <div class="volume-wrap"><canvas id="volChart" role="img" aria-label="Volume bar chart"></canvas></div>
+    </div>
+
+    <!-- Indicators -->
+    <div class="card">
+      <div class="card-title">Technical Indicators</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <table class="ind-table">
+          <tr><td>EMA 20</td><td id="ema20">—</td></tr>
+          <tr><td>EMA 50</td><td id="ema50">—</td></tr>
+          <tr><td>EMA 200</td><td id="ema200">—</td></tr>
+          <tr><td>RSI (14)</td><td id="rsi">—</td></tr>
+          <tr><td>ATR (14)</td><td id="atrVal">—</td></tr>
+        </table>
+        <table class="ind-table">
+          <tr><td>MACD</td><td id="macd">—</td></tr>
+          <tr><td>MACD SIG</td><td id="macdSig">—</td></tr>
+          <tr><td>BB Upper</td><td id="bbUpper">—</td></tr>
+          <tr><td>BB Lower</td><td id="bbLower">—</td></tr>
+          <tr><td>STOCH %K</td><td id="stoch">—</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="sidebar" style="overflow-y:auto;">
+    <!-- Signal -->
+    <div>
+      <div class="card-title">AI Signal</div>
+      <div class="signal-box signal-neutral" id="signalBox">
+        <div style="font-size:10px;color:var(--text2);font-family:'Space Mono',monospace;margin-bottom:4px">MARKET BIAS</div>
+        <div class="signal-label" id="signalLabel">⟳ LOADING</div>
+        <div class="signal-reason" id="signalReason">Fetching live data...</div>
+        <div style="margin-top:8px">
+          <div class="strength-label"><span>Signal Strength</span><span id="strengthPct">—</span></div>
+          <div class="strength-bar"><div class="strength-fill" id="strengthFill" style="width:0%;background:var(--gold)"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TP/SL -->
+    <div class="card">
+      <div class="card-title">Trade Setup · 1:2 RR</div>
+      <div class="tpsl-grid">
+        <div class="tpsl-cell"><div class="tpsl-key">ENTRY</div><div class="tpsl-val entry-val" id="entryVal">—</div></div>
+        <div class="tpsl-cell"><div class="tpsl-key">R:R RATIO</div><div class="tpsl-val rr-val" id="rrVal">1 : 2.0</div></div>
+        <div class="tpsl-cell"><div class="tpsl-key">🎯 TAKE PROFIT</div><div class="tpsl-val tp-val" id="tpVal">—</div></div>
+        <div class="tpsl-cell"><div class="tpsl-key">🛡️ STOP LOSS</div><div class="tpsl-val sl-val" id="slVal">—</div></div>
+      </div>
+      <div class="rr-bar" style="margin-top:10px"><div class="rr-fill"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text2);margin-top:4px;font-family:'Space Mono',monospace">
+        <span>SL: <span id="slPips">—</span> pips</span>
+        <span>TP: <span id="tpPips">—</span> pips</span>
+      </div>
+    </div>
+
+    <!-- SMC Zones -->
+    <div class="card">
+      <div class="card-title">SMC Key Zones</div>
+      <div class="zone-item">
+        <div><div class="zone-label">Order Block (Bull)</div><div style="font-size:10px;color:var(--text2)">Demand zone</div></div>
+        <div style="text-align:right"><div class="zone-price" id="obBull">—</div><div style="margin-top:3px"><span class="zone-tag tag-od">OB</span></div></div>
+      </div>
+      <div class="zone-item">
+        <div><div class="zone-label">Fair Value Gap</div><div style="font-size:10px;color:var(--text2)">Unmitigated</div></div>
+        <div style="text-align:right"><div class="zone-price" id="fvg">—</div><div style="margin-top:3px"><span class="zone-tag tag-fvg">FVG</span></div></div>
+      </div>
+      <div class="zone-item">
+        <div><div class="zone-label">Supply Zone</div><div style="font-size:10px;color:var(--text2)">Major resistance</div></div>
+        <div style="text-align:right"><div class="zone-price" id="supplyZone">—</div><div style="margin-top:3px"><span class="zone-tag tag-sd">SD</span></div></div>
+      </div>
+      <div class="zone-item">
+        <div><div class="zone-label">Liquidity</div><div style="font-size:10px;color:var(--text2)">Buy-side target</div></div>
+        <div style="text-align:right"><div class="zone-price" id="liquidity">—</div><div style="margin-top:3px"><span class="zone-tag tag-liq">LIQ</span></div></div>
+      </div>
+    </div>
+
+    <!-- AI Analysis -->
+    <div class="card">
+      <div class="card-title">AI SMC Analysis</div>
+      <div class="ai-box" id="aiBox">Click "Run AI Analysis" after data loads.</div>
+      <button class="analyze-btn" id="analyzeBtn" style="margin-top:10px" onclick="runAIAnalysis()">✦ RUN AI ANALYSIS</button>
+    </div>
+
+    <!-- Sessions -->
+    <div class="card">
+      <div class="card-title">Market Sessions</div>
+      <div id="sessions"></div>
+    </div>
+
+    <!-- Last Update -->
+    <div style="font-size:10px;color:var(--text2);font-family:'Space Mono',monospace;text-align:center;padding-bottom:8px">
+      Last update: <span id="lastUpdate">—</span>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── CONFIG ──────────────────────────────────────────────────────────────────
+const PAIR_CONFIG = {
+  XAUUSD: { digits:2, pip:0.10, tdSymbol:'XAU/USD', binance:null, fallback:2341.50 },
+  EURUSD: { digits:5, pip:0.0001, tdSymbol:'EUR/USD', binance:null, fallback:1.08420 },
+  BTCUSD: { digits:1, pip:1, tdSymbol:null, binance:'BTCUSDT', fallback:67450.0 },
+  GBPUSD: { digits:5, pip:0.0001, tdSymbol:'GBP/USD', binance:null, fallback:1.26850 },
+  USDJPY: { digits:3, pip:0.01, tdSymbol:'USD/JPY', binance:null, fallback:157.240 }
+};
+
+let currentPair = 'XAUUSD';
+let currentTF = '15min';
+let priceChart = null, volChart = null;
+let tdApiKey = '';
+let isLive = false;
+let candleHistory = [];
+let livePrice = 0;
+let wsConn = null;
+let refreshTimer = null;
+let anthropicKey = '';
+
+// ─── SETUP ───────────────────────────────────────────────────────────────────
+function saveAndStart() {
+  const k = document.getElementById('tdKeyInput').value.trim();
+  if (k) { localStorage.setItem('td_api_key', k); tdApiKey = k; }
+  const ak = document.getElementById('anthKeyInput') ? document.getElementById('anthKeyInput').value.trim() : '';
+  if (ak) { localStorage.setItem('anthropic_key', ak); anthropicKey = ak; }
+  document.getElementById('setupOverlay').style.display = 'none';
+  init();
+}
+function startSimulated() {
+  document.getElementById('setupOverlay').style.display = 'none';
+  init();
+}
+function showSetup() {
+  document.getElementById('tdKeyInput').value = tdApiKey;
+  document.getElementById('setupOverlay').style.display = 'flex';
+}
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+function init() {
+  tdApiKey = localStorage.getItem('td_api_key') || '';
+  anthropicKey = localStorage.getItem('anthropic_key') || '';
+  loadData();
+  updateSessions();
+  setInterval(updateSessions, 30000);
+}
+
+// ─── DATA LOADING ─────────────────────────────────────────────────────────────
+async function loadData() {
+  setStatus('loading');
+  const cfg = PAIR_CONFIG[currentPair];
+
+  // Crypto → Binanc
